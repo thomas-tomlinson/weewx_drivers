@@ -45,13 +45,13 @@ class ESP32Mqtt(weewx.drivers.AbstractDevice):
         _packet['supplyVoltage'] = message['remote']['battery']
         return _packet
 
-    def on_connect(self, client, userdata, flags, reason_code, properties):
-        if reason_code.is_failure:
-            print(f"Failed to connect: {reason_code}. loop_forever() will retry connection")
-        else:
-            # we should always subscribe from on_connect callback to be sure
+    def on_connect(self, client, userdata, flags, reason_code):
+        #if reason_code.is_failure:
+        #    print(f"Failed to connect: {reason_code}. loop_forever() will retry connection")
+        #else:
+        #    # we should always subscribe from on_connect callback to be sure
             # our subscribed is persisted across reconnections.
-            client.subscribe(self.mqtt_topic)
+        client.subscribe(self.mqtt_topic)
 
     def on_message(self, client, userdata, message):
         self.queue.put(message.payload) 
@@ -60,7 +60,7 @@ class ESP32Mqtt(weewx.drivers.AbstractDevice):
         #ws = websocket.WebSocketApp(self.ws_url,
         #                            on_message=self.process_packet,
         #                            )
-        mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        mqttc = mqtt.Client()
         mqttc.on_connect = self.on_connect
         mqttc.on_message = self.on_message
         mqttc.connect(self.mqtt_host)
