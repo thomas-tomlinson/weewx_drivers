@@ -6,12 +6,13 @@ import paho.mqtt.client as mqtt
 import json
 import weewx.drivers
 import weeutil.weeutil
+import logging
 from queue import Queue
-
 
 DRIVER_NAME = 'ESP32MQTT'
 DRIVER_VERSION = "1.0"
 
+log = logging.getLogger(__name__)
 
 def loader(config_dict, engine):
 
@@ -29,6 +30,12 @@ class ESP32Mqtt(weewx.drivers.AbstractDevice):
         self.mqtt_host = stn_dict.get('mqtt_host', 'weewx01.internal')
         self.mqtt_topic = stn_dict.get('mqtt_topic', 'esp32_weather_feed')
         self.queue = Queue()
+        self.mqttc = mqtt.Client()
+        self.mqttc.on_connect = self.on_connect
+        self.mqttc.on_message = self.on_message
+        self.mqttc.connect(self.mqtt_host)
+        self.mqttc.loop_start()
+        log.info("starting driver mqtt thread")
 
     def process_packet(self, message):
         _packet = {'dateTime': int(time.time()),
@@ -54,17 +61,9 @@ class ESP32Mqtt(weewx.drivers.AbstractDevice):
         client.subscribe(self.mqtt_topic)
 
     def on_message(self, client, userdata, message):
-        self.queue.put(message.payload) 
-    
+        self.queue.put(message.payload)
+
     def genLoopPackets(self):
-        #ws = websocket.WebSocketApp(self.ws_url,
-        #                            on_message=self.process_packet,
-        #                            )
-        mqttc = mqtt.Client()
-        mqttc.on_connect = self.on_connect
-        mqttc.on_message = self.on_message
-        mqttc.connect(self.mqtt_host)
-        mqttc.loop_start()
         while True:
             raw_message = self.queue.get()
             try:
@@ -75,13 +74,6 @@ class ESP32Mqtt(weewx.drivers.AbstractDevice):
 
             packet = self.process_packet(message)
             yield packet
-#        while True:
-#
-#            _packet = {'dateTime': int(self.the_time+0.5),
-#                       'usUnits' : weewx.US }
-#            for obs_type in self.observations:
-#                _packet[obs_type] = self.observations[obs_type].value_at(avg_time)
-#            yield _packet
 
     @property
     def hardware_name(self):
